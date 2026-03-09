@@ -1,0 +1,15 @@
+# Phase 1: Trend Scraping
+apify-client>=1.6.0        # Apify SDK for TikTok scraping
+httpx>=0.27.0              # Modern async HTTP client
+pandas>=2.2.0              # Data manipulation (CSV/JSON)
+python-dotenv>=1.0.0       # Load .env files
+rich>=13.7.0               # Pretty terminal output
+
+# Phase 2: Script Generation (install later)
+anthropic>=0.40.0        # Claude API SDK
+
+# Testing
+pytest>=8.0.0
+
+# Phase 3: Video Rendering
+ffmpeg-python>=0.2.0     # FFmpeg Python bindings
