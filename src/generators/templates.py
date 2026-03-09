@@ -10,7 +10,7 @@ Constants:
 """
 
 # ── Model config ──
-CLAUDE_MODEL = "claude-sonnet-4-20250514"  # cost-effective for batch script gen
+CLAUDE_MODEL = "claude-haiku-4-5-20251001"  # cheapest option while iterating on pipeline
 MAX_TOKENS = 4096  # enough for ~10 scripts in JSON
 
 # ── System prompt — defines Claude's role and output rules ──
