@@ -26,7 +26,7 @@ from apify_client import ApifyClient
 from rich import print as rprint
 from rich.table import Table
 
-from src.utils.config import APIFY_API_TOKEN, DATA_RAW_DIR
+from src.utils.config import APIFY_API_TOKEN, DATA_RAW_DIR, load_pipeline_config
 from src.utils.data_io import save_json
 
 # ── Apify actor ID for TikTok Ads Library ──
@@ -60,8 +60,12 @@ def scrape_ads(
     rprint(f"[blue]Scraping TikTok Ads Library for:[/blue] '{keyword}' (country={country}, max {max_results})")
     rprint("[dim]Running Apify actor… this may take a minute.[/dim]")
 
-    run = client.actor(ADS_LIBRARY_ACTOR).call(run_input=run_input)
-    items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+    try:
+        run = client.actor(ADS_LIBRARY_ACTOR).call(run_input=run_input)
+        items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+    except Exception as e:
+        rprint(f"[red]Apify ads scraper failed: {e}[/red]")
+        return []
 
     rprint(f"[green]Got {len(items)} ads from TikTok Ads Library[/green]")
     return items
@@ -105,7 +109,7 @@ def analyze_ad_hooks(ads: list[dict]) -> list[dict]:
             "advertiser": ad.get("advertiserName", "") or ad.get("advertiser", ""),
             "hook_text": hook_text,
             "cta_text": cta_text,
-            "estimated_spend": ad.get("estimatedSpend", 0) or ad.get("spend", 0),
+            "estimated_spend": ad.get("estimatedSpend") if "estimatedSpend" in ad else ad.get("spend", 0) or 0,
         })
 
     rprint(f"[green]Extracted hooks from {len(hooks)} ads[/green]")
@@ -115,16 +119,30 @@ def analyze_ad_hooks(ads: list[dict]) -> list[dict]:
 # ── Run standalone ──
 if __name__ == "__main__":
     rprint("[bold blue]TikTok Ads Library Scraper[/bold blue]")
-    rprint("─" * 40)
+    rprint("-" * 40)
 
     if not APIFY_API_TOKEN:
         rprint("[red]ERROR: APIFY_API_TOKEN not set in .env[/red]")
         rprint("Copy .env.example to .env and add your token.")
     else:
-        ads = scrape_ads("skincare", max_results=10)
-        if ads:
-            hooks = analyze_ad_hooks(ads)
-            save_json(ads, "ads", DATA_RAW_DIR)
+        config = load_pipeline_config()
+        keywords = config.get("ad_keywords", ["skincare"])
+        max_results = config.get("max_results_per_query", 10)
+
+        rprint(f"[dim]Niche: {config.get('niche', 'unknown')} | Keywords: {keywords}[/dim]")
+
+        all_ads = []
+        for keyword in keywords:
+            ads = scrape_ads(keyword, max_results=max_results)
+            all_ads.extend(ads)
+
+        if all_ads:
+            hooks = analyze_ad_hooks(all_ads)
+            save_json(all_ads, "ads", DATA_RAW_DIR)
+
+            # Process and save enriched hooks to data/processed/
+            from src.scrapers.hook_processor import process_and_save
+            process_and_save([], all_ads)
             # Display a summary table
             table = Table(title="Top TikTok Ads", show_lines=True)
             table.add_column("#", style="dim", width=3)

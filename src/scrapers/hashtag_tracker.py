@@ -23,7 +23,7 @@ from apify_client import ApifyClient
 from rich import print as rprint
 from rich.table import Table
 
-from src.utils.config import APIFY_API_TOKEN, DATA_RAW_DIR
+from src.utils.config import APIFY_API_TOKEN, DATA_RAW_DIR, load_pipeline_config
 from src.utils.data_io import save_json
 
 # ── Apify actor ID for hashtag scraping ──
@@ -54,8 +54,12 @@ def scrape_hashtags(
     rprint(f"[blue]Scraping hashtag stats for:[/blue] {', '.join(f'#{h}' for h in hashtags)}")
     rprint("[dim]Running Apify actor… this may take a minute.[/dim]")
 
-    run = client.actor(HASHTAG_SCRAPER_ACTOR).call(run_input=run_input)
-    items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+    try:
+        run = client.actor(HASHTAG_SCRAPER_ACTOR).call(run_input=run_input)
+        items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+    except Exception as e:
+        rprint(f"[red]Apify hashtag scraper failed: {e}[/red]")
+        return []
 
     rprint(f"[green]Got stats for {len(items)} hashtags[/green]")
     return items
@@ -81,8 +85,12 @@ def find_trending_hashtags(keyword: str) -> list[dict]:
     rprint(f"[blue]Discovering hashtags for:[/blue] '{keyword}'")
     rprint("[dim]Running Apify actor… this may take a minute.[/dim]")
 
-    run = client.actor(HASHTAG_SCRAPER_ACTOR).call(run_input=run_input)
-    items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+    try:
+        run = client.actor(HASHTAG_SCRAPER_ACTOR).call(run_input=run_input)
+        items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+    except Exception as e:
+        rprint(f"[red]Apify hashtag discovery failed: {e}[/red]")
+        return []
 
     # Sort by view count descending (highest momentum first)
     items.sort(
@@ -108,13 +116,19 @@ def _fmt_views(n: int) -> str:
 # ── Run standalone ──
 if __name__ == "__main__":
     rprint("[bold blue]TikTok Hashtag Tracker[/bold blue]")
-    rprint("─" * 40)
+    rprint("-" * 40)
 
     if not APIFY_API_TOKEN:
         rprint("[red]ERROR: APIFY_API_TOKEN not set in .env[/red]")
         rprint("Copy .env.example to .env and add your token.")
     else:
-        hashtags = scrape_hashtags(["skincare", "glowup", "beautytok"], max_results=10)
+        config = load_pipeline_config()
+        hashtag_list = config.get("hashtags", ["skincare", "glowup", "beautytok"])
+        max_results = config.get("max_results_per_query", 10)
+
+        rprint(f"[dim]Niche: {config.get('niche', 'unknown')} | Hashtags: {hashtag_list}[/dim]")
+
+        hashtags = scrape_hashtags(hashtag_list, max_results=max_results)
         if hashtags:
             save_json(hashtags, "hashtags", DATA_RAW_DIR)
 

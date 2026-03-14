@@ -17,14 +17,35 @@ __pycache__/
 # Raw scraped data (large files, regenerable)
 data/raw/
 
+# Processed hooks (regenerable)
+data/processed/
+
+# Generated scripts (regenerable)
+data/scripts/
+
 # Rendered videos (large files)
 output/
+
+# TikTok auth tokens (sensitive)
+data/tokens/
+
+# Video analysis data (regenerable)
+data/frames/
+data/transcripts/
+data/analysis/
+data/style_bibles/
+
+# Input videos (large files, user-sourced)
+videos/
 
 # Distribution / packaging
 dist/
 build/
 *.egg-info/
 *.egg
+
+# Music assets (large files, user-sourced)
+assets/music/
 
 # OS files
 .DS_Store

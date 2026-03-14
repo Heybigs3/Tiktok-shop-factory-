@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Mission Control{% endblock %} — TikTok Factory</title>
+
+    <!-- Tailwind CSS (Play CDN — JIT in browser, no build step) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            900: '#1a1a2e',
+                            800: '#16213e',
+                            700: '#0f3460',
+                            600: '#2a2a4e',
+                        },
+                        gold: {
+                            DEFAULT: '#ffd700',
+                            hover: '#ffed4a',
+                        },
+                        mood: {
+                            warm: '#f5a623',
+                            cool: '#4fc3f7',
+                            energetic: '#ff6b6b',
+                            calm: '#81c784',
+                        },
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- Custom styles (animations only) -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-navy-900 text-gray-200 flex min-h-screen">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-64 bg-navy-800 border-r border-navy-600 flex flex-col fixed h-full z-30 transition-all duration-200" role="navigation" aria-label="Main navigation">
+        <!-- Brand -->
+        <div class="p-4 border-b border-navy-600">
+            <a href="/" class="text-gold font-bold text-lg tracking-wide">TikTok Factory</a>
+        </div>
+
+        <!-- Account Switcher -->
+        <div class="p-3 border-b border-navy-600">
+            <label class="text-xs text-gray-500 uppercase tracking-wider mb-1 block">Account</label>
+            <select
+                id="account-switcher"
+                class="w-full bg-navy-700 border border-navy-600 text-gray-200 rounded-lg px-3 py-2 text-sm focus:border-gold focus:outline-none"
+                onchange="switchAccount(this.value)"
+            >
+                {% for acct in accounts %}
+                <option value="{{ acct.id }}" {% if acct.id == active_account.id %}selected{% endif %}>
+                    {{ acct.name }}{% if acct.niche %} — {{ acct.niche }}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 p-3 space-y-1">
+            <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_page == 'videos' %}bg-navy-700 text-gold{% else %}text-gray-400 hover:bg-navy-700 hover:text-gray-200{% endif %}">
+                <span class="w-5 text-center">&#9654;</span>
+                Videos
+                {% if video_count %}<span class="ml-auto bg-gold text-navy-900 text-xs font-bold px-2 py-0.5 rounded-full">{{ video_count }}</span>{% endif %}
+            </a>
+            <a href="/products" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_page == 'products' %}bg-navy-700 text-gold{% else %}text-gray-400 hover:bg-navy-700 hover:text-gray-200{% endif %}">
+                <span class="w-5 text-center">&#128230;</span>
+                Products
+            </a>
+        </nav>
+
+        <!-- Footer: Settings + Collapse -->
+        <div class="p-3 border-t border-navy-600 space-y-1">
+            <a href="/settings" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {% if active_page == 'settings' %}bg-navy-700 text-gold{% else %}text-gray-400 hover:bg-navy-700 hover:text-gray-200{% endif %}">
+                <span class="w-5 text-center">&#9881;</span>
+                Settings
+            </a>
+            <button onclick="toggleSidebar()" class="text-gray-500 hover:text-gray-300 text-xs w-full text-left px-3 py-1" aria-label="Toggle sidebar">
+                <span id="collapse-label">Collapse</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Sidebar spacer (pushes main content right) -->
+    <div id="sidebar-spacer" class="w-64 flex-shrink-0 transition-all duration-200"></div>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col min-h-screen">
+        <!-- Mobile top bar (visible when sidebar collapsed) -->
+        <header id="mobile-header" class="hidden bg-navy-800 border-b border-navy-600 px-4 py-3 items-center gap-3">
+            <button onclick="toggleSidebar()" class="text-gray-400 hover:text-gold text-lg" aria-label="Open navigation menu">&#9776;</button>
+            <span class="text-gold font-bold">TikTok Factory</span>
+        </header>
+
+        <main class="flex-1 p-6 max-w-7xl w-full mx-auto">
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="text-center py-4 text-gray-600 text-sm border-t border-navy-600">
+            TikTok Content Factory — Mission Control
+        </footer>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

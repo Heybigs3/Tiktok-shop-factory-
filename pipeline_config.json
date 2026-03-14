@@ -1,0 +1,92 @@
+{
+  "niche": "skincare",
+  "search_queries": [
+    "skincare routine",
+    "skincare tips",
+    "glass skin"
+  ],
+  "ad_keywords": [
+    "skincare",
+    "moisturizer",
+    "serum"
+  ],
+  "hashtags": [
+    "skincare",
+    "glowup",
+    "beautytok"
+  ],
+  "max_results_per_query": 10,
+  "num_scripts": 5,
+  "processing": {
+    "min_hook_length": 15,
+    "min_plays": 0,
+    "sort_by": "engagement_rate"
+  },
+  "music": {
+    "enabled": true,
+    "volume": 0.15,
+    "mood_map": {
+      "warm": "warm.mp3",
+      "cool": "cool.mp3",
+      "energetic": "energetic.mp3",
+      "calm": "calm.mp3",
+      "default": "calm.mp3"
+    }
+  },
+  "tts": {
+    "enabled": true,
+    "voice_map": {
+      "warm": "Jessica",
+      "cool": "Eric",
+      "energetic": "Liam",
+      "calm": "River",
+      "default": "Sarah"
+    },
+    "model": "eleven_multilingual_v2",
+    "stability": 0.5,
+    "similarity_boost": 0.75
+  },
+  "video_style": "product_showcase",
+  "motion_method": "ken_burns",
+  "product_sources": {
+    "kalodata": {
+      "categories": [
+        "skincare",
+        "beauty"
+      ],
+      "sort_by": "revenue",
+      "time_range": "last7Day",
+      "max_results": 10
+    }
+  },
+  "muapi": {
+    "model": "auto",
+    "style_preset": "product_showcase"
+  },
+  "screen_recording": {
+    "scroll_speed": 300,
+    "pause_duration": 1.5,
+    "show_recording_indicator": true
+  },
+  "format_router": {
+    "default_format": "product_showcase",
+    "screen_recording_enabled": true,
+    "heygen_enabled": false,
+    "format_weights": {
+      "product_showcase": 0.4,
+      "screen_recording": 0.4,
+      "ugc_avatar": 0.2
+    }
+  },
+  "analyzer": {
+    "num_frames": 5,
+    "scene_detection": true,
+    "scene_threshold": 0.3,
+    "whisper_model": "base",
+    "analysis_model": "claude-haiku-4-5-20251001",
+    "synthesis_model": "claude-sonnet-4-20250514",
+    "style_bible_niche": "skincare",
+    "download_top_n": 15,
+    "min_plays_for_download": 10000
+  }
+}

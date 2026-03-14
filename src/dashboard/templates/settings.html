@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+{% set active_page = "settings" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Settings</h1>
+    <p class="text-gray-400 mt-1">Pipeline, config, analysis, and accounts</p>
+</div>
+
+<!-- Quick nav anchors -->
+<div class="sticky top-0 z-10 bg-navy-900/95 backdrop-blur pb-3 pt-1 -mx-6 px-6 mb-8">
+<div class="flex flex-wrap gap-2">
+    <a href="#pipeline" class="px-3 py-1.5 rounded-full text-sm bg-navy-800 text-gray-300 border border-navy-600 hover:border-gold hover:text-gold transition-colors">Pipeline</a>
+    <a href="#config" class="px-3 py-1.5 rounded-full text-sm bg-navy-800 text-gray-300 border border-navy-600 hover:border-gold hover:text-gold transition-colors">Config</a>
+    <a href="#analyze" class="px-3 py-1.5 rounded-full text-sm bg-navy-800 text-gray-300 border border-navy-600 hover:border-gold hover:text-gold transition-colors">Analysis</a>
+    <a href="#accounts" class="px-3 py-1.5 rounded-full text-sm bg-navy-800 text-gray-300 border border-navy-600 hover:border-gold hover:text-gold transition-colors">Accounts</a>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PIPELINE RUNNER                                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="pipeline" class="mb-12 scroll-mt-20">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold text-white">Pipeline</h2>
+        <button
+            class="bg-gold text-navy-900 font-semibold px-5 py-2.5 rounded-lg hover:bg-gold-hover transition-colors text-sm"
+            hx-post="/api/pipeline/run-all"
+            hx-swap="none"
+            hx-disabled-elt="this"
+        >
+            Run All
+        </button>
+    </div>
+
+    <!-- Pipeline Stepper -->
+    <div class="flex items-center justify-center gap-0 mb-8 py-4">
+        {% set step_phases = [("scrape", "Scrape"), ("generate", "Generate"), ("render", "Render"), ("publish", "Publish")] %}
+        {% for phase_id, label in step_phases %}
+            {% set run = runs.get(phase_id, {}) %}
+            {% set state = run.get("status", "idle") if run else "idle" %}
+            {% if state not in ["running", "done", "failed"] %}{% set state = "idle" %}{% endif %}
+
+            {% if not loop.first %}
+            <div class="w-12 h-0.5 mx-2 mb-6 transition-colors {% if runs.get(step_phases[loop.index0 - 1][0], {}).get('status') == 'done' %}bg-mood-calm{% else %}bg-gray-600{% endif %}"></div>
+            {% endif %}
+
+            <div class="flex flex-col items-center gap-1.5">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all border-2
+                    {% if state == 'done' %}bg-mood-calm border-mood-calm text-white
+                    {% elif state == 'running' %}bg-gold border-gold text-navy-900 step-running
+                    {% elif state == 'failed' %}bg-mood-energetic border-mood-energetic text-white
+                    {% else %}border-gray-600 text-gray-600{% endif %}">
+                    {% if state == "done" %}&#10003;{% elif state == "failed" %}&#10005;{% else %}{{ loop.index }}{% endif %}
+                </div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">{{ label }}</span>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Phase Cards -->
+    <div class="phase-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {% for phase_id, phase in phases.items() %}
+        <div id="phase-{{ phase_id }}">
+            {% include "_pipeline_card.html" %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- PIPELINE CONFIG + API KEYS                                             -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="config" class="mb-12 scroll-mt-20">
+    <h2 class="text-xl font-bold text-white mb-6">Pipeline Config</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Pipeline Config -->
+        <div class="bg-navy-800 rounded-xl border border-navy-600 overflow-hidden">
+            <div class="px-5 py-4 border-b border-navy-600">
+                <h3 class="text-lg font-bold text-white">Config</h3>
+            </div>
+            <form hx-put="/api/config" hx-swap="none" class="p-5 space-y-4">
+                <div class="flex justify-between items-center py-2 border-b border-navy-600/50">
+                    <span class="text-gray-400 font-medium text-sm">Niche</span>
+                    <input name="niche" value="{{ config.get('niche', '') }}" class="bg-navy-700 border border-navy-600 text-gray-200 rounded px-3 py-1.5 text-sm w-full sm:w-64 text-right focus:border-gold focus:outline-none">
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-navy-600/50">
+                    <span class="text-gray-400 font-medium text-sm">Search queries</span>
+                    <input name="search_queries" value="{{ config.get('search_queries', [])|join(', ') }}" class="bg-navy-700 border border-navy-600 text-gray-200 rounded px-3 py-1.5 text-sm w-full sm:w-64 text-right focus:border-gold focus:outline-none">
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-navy-600/50">
+                    <span class="text-gray-400 font-medium text-sm">Ad keywords</span>
+                    <input name="ad_keywords" value="{{ config.get('ad_keywords', [])|join(', ') }}" class="bg-navy-700 border border-navy-600 text-gray-200 rounded px-3 py-1.5 text-sm w-full sm:w-64 text-right focus:border-gold focus:outline-none">
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-navy-600/50">
+                    <span class="text-gray-400 font-medium text-sm">Hashtags</span>
+                    <input name="hashtags" value="{{ config.get('hashtags', [])|join(', ') }}" class="bg-navy-700 border border-navy-600 text-gray-200 rounded px-3 py-1.5 text-sm w-full sm:w-64 text-right focus:border-gold focus:outline-none">
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-navy-600/50">
+                    <span class="text-gray-400 font-medium text-sm">Scripts to generate</span>
+                    <input name="num_scripts" type="number" value="{{ config.get('num_scripts', 5) }}" min="1" max="20" class="bg-navy-700 border border-navy-600 text-gray-200 rounded px-3 py-1.5 text-sm w-20 text-right focus:border-gold focus:outline-none">
+                </div>
+                <button type="submit" class="w-full bg-navy-700 text-gold border border-navy-600 font-semibold py-2 rounded-lg hover:bg-navy-600 transition-colors text-sm">
+                    Save Config
+                </button>
+            </form>
+        </div>
+
+        <!-- API Keys -->
+        <div class="bg-navy-800 rounded-xl border border-navy-600 overflow-hidden">
+            <div class="px-5 py-4 border-b border-navy-600">
+                <h3 class="text-lg font-bold text-white">API Keys</h3>
+            </div>
+            <div class="p-5">
+                <table class="w-full">
+                    {% for key, is_set in api_keys.items() %}
+                    <tr class="border-b border-navy-600/50 last:border-0">
+                        <td class="py-2.5 flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full inline-block {% if is_set %}bg-mood-calm{% else %}bg-mood-energetic{% endif %}"></span>
+                            <span class="text-sm text-gray-300">{{ key }}</span>
+                        </td>
+                        <td class="py-2.5 text-right text-sm {% if is_set %}text-mood-calm{% else %}text-gray-500{% endif %}">
+                            {% if is_set %}Configured{% else %}Missing{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- ANALYSIS (lazy-loaded)                                                 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="analyze" class="mb-12 scroll-mt-20">
+    <details>
+        <summary class="text-xl font-bold text-white cursor-pointer hover:text-gold transition-colors">
+            Video Analysis <span class="text-sm font-normal text-gray-500 ml-2">(advanced)</span>
+        </summary>
+        <div class="mt-6">
+
+    <div>
+        <!-- Analysis stats and content -->
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-gray-400">Compare scraped TikTok winners vs our rendered videos</p>
+            <div class="flex gap-3">
+                <button
+                    hx-post="/api/analyze/download"
+                    hx-swap="none"
+                    class="px-4 py-2 bg-navy-700 text-gray-200 rounded-lg hover:bg-navy-600 text-sm font-medium border border-navy-600"
+                >
+                    Download Top Videos
+                </button>
+                <button
+                    hx-post="/api/analyze/run"
+                    hx-swap="none"
+                    class="px-4 py-2 bg-navy-700 text-gray-200 rounded-lg hover:bg-navy-600 text-sm font-medium border border-navy-600"
+                >
+                    Analyze All Videos
+                </button>
+                <button
+                    hx-post="/api/analyze/compare"
+                    hx-swap="none"
+                    class="px-4 py-2 bg-gold text-navy-900 rounded-lg hover:bg-gold-hover text-sm font-bold"
+                >
+                    Run Comparison
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats row -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div class="bg-navy-800 rounded-xl border border-navy-600 p-4 text-center">
+                <div class="text-2xl font-bold text-mood-calm">{{ stats.scraped_count }}</div>
+                <div class="text-xs text-gray-500 mt-1">Scraped Analyzed</div>
+            </div>
+            <div class="bg-navy-800 rounded-xl border border-navy-600 p-4 text-center">
+                <div class="text-2xl font-bold text-mood-warm">{{ stats.rendered_count }}</div>
+                <div class="text-xs text-gray-500 mt-1">Rendered Analyzed</div>
+            </div>
+            <div class="bg-navy-800 rounded-xl border border-navy-600 p-4 text-center">
+                <div class="text-2xl font-bold text-mood-calm">{{ stats.scraped_avg_score }}</div>
+                <div class="text-xs text-gray-500 mt-1">Scraped Avg Score</div>
+            </div>
+            <div class="bg-navy-800 rounded-xl border border-navy-600 p-4 text-center">
+                <div class="text-2xl font-bold {% if stats.rendered_avg_score < stats.scraped_avg_score %}text-mood-energetic{% else %}text-mood-calm{% endif %}">{{ stats.rendered_avg_score }}</div>
+                <div class="text-xs text-gray-500 mt-1">Rendered Avg Score</div>
+            </div>
+            <div class="bg-navy-800 rounded-xl border border-navy-600 p-4 text-center">
+                <div class="text-2xl font-bold text-mood-energetic">{{ stats.num_gaps }}</div>
+                <div class="text-xs text-gray-500 mt-1">Gaps Found</div>
+            </div>
+        </div>
+
+        {% if report %}
+        <!-- Comparison Report -->
+        <div class="bg-navy-800 rounded-xl border border-navy-600 overflow-hidden mb-6">
+            <div class="p-5 border-b border-navy-600 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white">Comparison Report</h3>
+                <span class="text-xs text-gray-500">{{ report.num_scraped }} scraped vs {{ report.num_rendered }} rendered</span>
+            </div>
+            <div class="p-5">
+                <div class="bg-navy-900 rounded-lg p-4 mb-6 border-l-4 border-mood-energetic">
+                    <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Overall Verdict</div>
+                    <p class="text-gray-200">{{ report.overall_verdict }}</p>
+                </div>
+
+                {% if report.quality_comparison %}
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-navy-900 rounded-lg p-4 text-center">
+                        <div class="text-xs text-gray-500 mb-1">Scraped Quality</div>
+                        <div class="text-3xl font-bold text-mood-calm">{{ report.quality_comparison.scraped_avg }}</div>
+                    </div>
+                    <div class="bg-navy-900 rounded-lg p-4 text-center">
+                        <div class="text-xs text-gray-500 mb-1">Our Quality</div>
+                        <div class="text-3xl font-bold text-mood-energetic">{{ report.quality_comparison.rendered_avg }}</div>
+                    </div>
+                    <div class="bg-navy-900 rounded-lg p-4 text-center">
+                        <div class="text-xs text-gray-500 mb-1">Gap</div>
+                        <div class="text-3xl font-bold text-mood-warm">{{ report.quality_comparison.gap }}</div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if report.gaps %}
+                <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Key Gaps</h3>
+                <div class="space-y-4 mb-6">
+                    {% for gap in report.gaps %}
+                    <div class="bg-navy-900 rounded-lg p-4 border border-navy-600">
+                        <div class="flex items-start justify-between mb-2">
+                            <span class="text-sm font-bold text-gold">{{ gap.category }}</span>
+                        </div>
+                        <p class="text-gray-200 text-sm mb-3">{{ gap.issue }}</p>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div class="text-xs">
+                                <span class="text-mood-calm font-semibold">Scraped:</span>
+                                <span class="text-gray-400"> {{ gap.scraped_value }}</span>
+                            </div>
+                            <div class="text-xs">
+                                <span class="text-mood-energetic font-semibold">Ours:</span>
+                                <span class="text-gray-400"> {{ gap.rendered_value }}</span>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-500 mb-2"><strong class="text-gray-400">Impact:</strong> {{ gap.impact }}</div>
+                        <div class="bg-navy-800 rounded px-3 py-2 text-xs">
+                            <strong class="text-mood-calm">Fix:</strong>
+                            <span class="text-gray-300"> {{ gap.fix }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if report.priority_fixes %}
+                <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Priority Fixes</h3>
+                <div class="bg-navy-900 rounded-lg p-4 border border-navy-600">
+                    <ol class="list-decimal list-inside space-y-2">
+                        {% for fix in report.priority_fixes %}
+                        <li class="text-sm text-gray-200">{{ fix }}</li>
+                        {% endfor %}
+                    </ol>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if style_bible %}
+        <!-- Style Bible -->
+        <div class="bg-navy-800 rounded-xl border border-navy-600 overflow-hidden mb-6">
+            <div class="p-4 border-b border-navy-600">
+                <h3 class="text-lg font-bold text-white">Style Bible — {{ style_bible.niche|default('General')|title }}</h3>
+                <p class="text-xs text-gray-500 mt-1">Based on {{ style_bible.num_videos_analyzed|default('?') }} analyzed TikTok videos</p>
+            </div>
+            <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-6">
+                {% if style_bible.hook_patterns %}
+                <div>
+                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Hook Patterns</h4>
+                    <div class="space-y-2">
+                        {% for ht in style_bible.hook_patterns.top_types[:4] %}
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-300">{{ ht.type }}</span>
+                            <span class="text-gold font-bold">{{ "%.0f"|format(ht.frequency_pct) }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if style_bible.visual_style %}
+                <div>
+                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Visual Style</h4>
+                    <div class="space-y-2">
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">Dominant Colors</div>
+                            <div class="flex gap-1">
+                                {% for color in style_bible.visual_style.dominant_colors[:5] %}
+                                <span class="w-6 h-6 rounded border border-navy-600" style="background-color: {{ color }}" title="{{ color }}"></span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if style_bible.cta_patterns %}
+                <div>
+                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">CTA Patterns</h4>
+                    <div class="space-y-2">
+                        {% for ct in style_bible.cta_patterns.top_types[:4] %}
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-300">{{ ct.type }}</span>
+                            <span class="text-gold font-bold">{{ "%.0f"|format(ct.frequency_pct) }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if not report and not style_bible %}
+        <div class="bg-navy-800 rounded-xl border border-navy-600 p-8 text-center">
+            <p class="text-gray-400 mb-4">No analysis data yet. Download top videos and run analysis to get started.</p>
+            <button
+                hx-post="/api/analyze/download"
+                hx-swap="none"
+                class="px-4 py-2 bg-gold text-navy-900 rounded-lg hover:bg-gold-hover text-sm font-bold"
+            >
+                Start: Download Top Videos
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+        </div>
+    </details>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- ACCOUNTS                                                               -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="accounts" class="mb-12 scroll-mt-20">
+    <h2 class="text-xl font-bold text-white mb-6">Accounts</h2>
+
+    <!-- Create New Account Form -->
+    <div class="bg-navy-800 rounded-xl border border-navy-600 p-5 mb-6">
+        <h3 class="text-white font-semibold mb-3">New Account</h3>
+        <form hx-post="/api/accounts" hx-swap="none" class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs text-gray-500 uppercase tracking-wider mb-1">Name</label>
+                <input name="name" required placeholder="e.g. Skincare Store" class="w-full bg-navy-700 border border-navy-600 text-gray-200 rounded-lg px-3 py-2 text-sm focus:border-gold focus:outline-none">
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs text-gray-500 uppercase tracking-wider mb-1">Niche</label>
+                <input name="niche" placeholder="e.g. skincare" class="w-full bg-navy-700 border border-navy-600 text-gray-200 rounded-lg px-3 py-2 text-sm focus:border-gold focus:outline-none">
+            </div>
+            <button type="submit" class="bg-gold text-navy-900 font-semibold px-6 py-2 rounded-lg hover:bg-gold-hover transition-colors text-sm">
+                Create
+            </button>
+        </form>
+    </div>
+
+    <!-- Account Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for acct in accounts %}
+        <div class="bg-navy-800 rounded-xl border border-navy-600 overflow-hidden {% if acct.id == active_account.id %}ring-2 ring-gold{% endif %}">
+            <div class="p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-white font-bold text-lg">{{ acct.name }}</h3>
+                    {% if acct.is_default %}
+                    <span class="text-xs bg-gold/20 text-gold px-2 py-0.5 rounded-full font-semibold">Default</span>
+                    {% endif %}
+                </div>
+
+                {% if acct.niche %}
+                <p class="text-gray-400 text-sm mb-4">Niche: <strong class="text-gray-300">{{ acct.niche }}</strong></p>
+                {% endif %}
+
+                <div class="text-xs text-gray-500 mb-4">
+                    Created {{ acct.created_at[:10] }}
+                </div>
+
+                <!-- Inline Edit Form -->
+                <details class="mb-3">
+                    <summary class="text-sm text-gold cursor-pointer hover:text-gold-hover">Edit</summary>
+                    <form hx-put="/api/accounts/{{ acct.id }}" hx-swap="none" class="mt-3 space-y-2">
+                        <input name="name" value="{{ acct.name }}" class="w-full bg-navy-700 border border-navy-600 text-gray-200 rounded px-3 py-1.5 text-sm focus:border-gold focus:outline-none">
+                        <input name="niche" value="{{ acct.niche or '' }}" placeholder="Niche" class="w-full bg-navy-700 border border-navy-600 text-gray-200 rounded px-3 py-1.5 text-sm focus:border-gold focus:outline-none">
+                        <button type="submit" class="bg-navy-700 text-gold border border-navy-600 px-4 py-1.5 rounded text-sm font-semibold hover:bg-navy-600 transition-colors">Save</button>
+                    </form>
+                </details>
+            </div>
+
+            <div class="px-5 py-3 border-t border-navy-600 flex items-center justify-between">
+                {% if acct.id != active_account.id %}
+                <button
+                    class="text-sm text-gold hover:text-gold-hover font-semibold"
+                    hx-post="/api/accounts/{{ acct.id }}/activate"
+                    hx-swap="none"
+                >
+                    Switch to this
+                </button>
+                {% else %}
+                <span class="text-sm text-mood-calm font-semibold">Active</span>
+                {% endif %}
+
+                {% if not acct.is_default %}
+                <button
+                    class="text-sm text-mood-energetic hover:text-red-400"
+                    hx-delete="/api/accounts/{{ acct.id }}"
+                    hx-swap="none"
+                    hx-confirm="Delete &quot;{{ acct.name }}&quot;? This removes all its data."
+                >
+                    Delete
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

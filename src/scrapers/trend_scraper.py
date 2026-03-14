@@ -27,11 +27,11 @@ from apify_client import ApifyClient
 from rich import print as rprint
 from rich.table import Table
 
-from src.utils.config import APIFY_API_TOKEN, DATA_RAW_DIR
+from src.utils.config import APIFY_API_TOKEN, DATA_RAW_DIR, load_pipeline_config
 from src.utils.data_io import save_json
 
 # ── Apify actor ID for TikTok video scraping ──
-TIKTOK_SCRAPER_ACTOR = "apify/tiktok-scraper"
+TIKTOK_SCRAPER_ACTOR = "clockworks/tiktok-scraper"
 
 
 def scrape_trending_videos(
@@ -65,8 +65,12 @@ def scrape_trending_videos(
     rprint(f"[blue]Scraping TikTok for:[/blue] '{search_term}' (max {max_results} results)")
     rprint("[dim]Running Apify actor… this may take a minute.[/dim]")
 
-    run = client.actor(TIKTOK_SCRAPER_ACTOR).call(run_input=run_input)
-    items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+    try:
+        run = client.actor(TIKTOK_SCRAPER_ACTOR).call(run_input=run_input)
+        items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
+    except Exception as e:
+        rprint(f"[red]Apify scraper failed: {e}[/red]")
+        return []
 
     rprint(f"[green]Got {len(items)} videos from TikTok[/green]")
     return items
@@ -107,10 +111,10 @@ def extract_hooks(videos: list[dict]) -> list[dict]:
                       else video.get("author", ""),
             "hook_text": hook_text,
             "stats": {
-                "plays": video.get("playCount", 0) or video.get("plays", 0),
-                "likes": video.get("diggCount", 0) or video.get("likes", 0),
-                "shares": video.get("shareCount", 0) or video.get("shares", 0),
-                "comments": video.get("commentCount", 0) or video.get("comments", 0),
+                "plays": video.get("playCount") if "playCount" in video else video.get("plays", 0) or 0,
+                "likes": video.get("diggCount") if "diggCount" in video else video.get("likes", 0) or 0,
+                "shares": video.get("shareCount") if "shareCount" in video else video.get("shares", 0) or 0,
+                "comments": video.get("commentCount") if "commentCount" in video else video.get("comments", 0) or 0,
             },
         })
 
@@ -133,7 +137,7 @@ def display_results(videos: list[dict]) -> None:
 
     for i, video in enumerate(videos[:20], 1):
         text = video.get("text", "") or video.get("description", "") or ""
-        hook = text[:80] + "…" if len(text) > 80 else text
+        hook = text[:80] + ("…" if len(text) > 80 else "")
 
         author = ""
         if isinstance(video.get("authorMeta"), dict):
@@ -141,8 +145,8 @@ def display_results(videos: list[dict]) -> None:
         else:
             author = video.get("author", "unknown")
 
-        plays = video.get("playCount", 0) or video.get("plays", 0)
-        likes = video.get("diggCount", 0) or video.get("likes", 0)
+        plays = video.get("playCount") if "playCount" in video else video.get("plays", 0) or 0
+        likes = video.get("diggCount") if "diggCount" in video else video.get("likes", 0) or 0
 
         def _fmt(n: int) -> str:
             if n >= 1_000_000:
@@ -159,15 +163,33 @@ def display_results(videos: list[dict]) -> None:
 # ── Run standalone for testing ──
 if __name__ == "__main__":
     rprint("[bold blue]TikTok Trend Scraper[/bold blue]")
-    rprint("─" * 40)
+    rprint("-" * 40)
 
     # Quick config check
     if not APIFY_API_TOKEN:
         rprint("[red]ERROR: APIFY_API_TOKEN not set in .env[/red]")
         rprint("Copy .env.example to .env and add your token.")
     else:
-        videos = scrape_trending_videos("skincare routine", max_results=10)
-        if videos:
-            hooks = extract_hooks(videos)
-            save_json(videos, "trending_videos", DATA_RAW_DIR)
-            display_results(videos)
+        config = load_pipeline_config()
+        queries = config.get("search_queries", ["skincare routine"])
+        max_results = config.get("max_results_per_query", 10)
+
+        rprint(f"[dim]Niche: {config.get('niche', 'unknown')} | Queries: {queries}[/dim]")
+
+        all_videos = []
+        for query in queries:
+            videos = scrape_trending_videos(query, max_results=max_results)
+            # Tag each video with its source query for tracking
+            for v in videos:
+                v["_source_query"] = query
+            all_videos.extend(videos)
+
+        if all_videos:
+            hooks = extract_hooks(all_videos)
+            save_json(all_videos, "trending_videos", DATA_RAW_DIR)
+
+            # Process and save enriched hooks to data/processed/
+            from src.scrapers.hook_processor import process_and_save
+            process_and_save(all_videos, [])
+
+            display_results(all_videos)

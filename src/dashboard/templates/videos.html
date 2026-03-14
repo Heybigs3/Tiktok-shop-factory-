@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% set active_page = "videos" %}
+
+{% block title %}Videos{% endblock %}
+
+{% block content %}
+<!-- Header with badges -->
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Videos</h1>
+        <p class="text-gray-400 mt-1">Review, copy caption, download, post to TikTok</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <span id="ready-badge" class="bg-gold/20 text-gold text-sm font-semibold px-3 py-1 rounded-full">{{ ready_videos|length }} ready</span>
+        <span id="today-badge" class="bg-mood-calm/20 text-mood-calm text-sm font-semibold px-3 py-1 rounded-full">{{ posts_today }} posted today</span>
+    </div>
+</div>
+
+<!-- Posting Notes Bar -->
+{% if posting_notes %}
+<div class="bg-navy-800 border border-navy-600 rounded-xl px-5 py-3 mb-6 flex items-center gap-3">
+    <span class="text-gray-500 text-sm font-semibold shrink-0">Notes:</span>
+    <p class="text-gray-300 text-sm">{{ posting_notes }}</p>
+    <button type="button" onclick="document.getElementById('notes-modal').classList.toggle('hidden')"
+            class="ml-auto text-xs text-gray-500 hover:text-gold shrink-0">Edit</button>
+</div>
+{% else %}
+<div class="mb-6">
+    <button type="button" onclick="document.getElementById('notes-modal').classList.toggle('hidden')"
+            class="text-xs text-gray-500 hover:text-gold">+ Add posting notes for your VA</button>
+</div>
+{% endif %}
+
+<!-- Notes editor (hidden by default) -->
+<div id="notes-modal" class="hidden bg-navy-800 border border-navy-600 rounded-xl p-5 mb-6">
+    <label class="block text-sm text-white font-semibold mb-2">Posting Notes</label>
+    <textarea id="posting-notes-textarea"
+              class="w-full bg-navy-700 border border-navy-600 text-gray-200 rounded-lg px-4 py-3 text-sm focus:border-gold focus:outline-none resize-y min-h-[60px] mb-2"
+    >{{ posting_notes }}</textarea>
+    <button type="button"
+            class="bg-gold text-navy-900 font-semibold px-4 py-2 rounded-lg hover:bg-gold-hover transition-colors text-sm"
+            hx-put="/api/publish/notes"
+            hx-vals='js:{"notes": document.getElementById("posting-notes-textarea").value}'
+            hx-swap="none"
+            onclick="setTimeout(() => document.getElementById('notes-modal').classList.add('hidden'), 300)">
+        Save
+    </button>
+</div>
+
+<!-- Week Strip -->
+<div class="bg-navy-800 rounded-xl border border-navy-600 p-3 mb-6">
+    <div class="flex items-center gap-2">
+        <a href="/?week_offset={{ week_offset - 1 }}" class="text-gray-400 hover:text-gold transition-colors text-sm font-semibold px-2">&larr;</a>
+        <div class="flex-1 grid grid-cols-7 gap-1">
+            {% for date_str, items in week_data.items() %}
+            {% set day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}
+            <div class="text-center px-1 py-1.5 rounded-lg {% if date_str == today %}bg-gold/10 ring-1 ring-gold/30{% endif %}">
+                <div class="text-xs text-gray-500">{{ day_names[loop.index0] }}</div>
+                <div class="text-sm font-bold {% if date_str == today %}text-gold{% else %}text-white{% endif %}">{{ date_str[8:] }}</div>
+                {% if items %}
+                <div class="flex justify-center gap-0.5 mt-1">
+                    {% for item in items %}
+                    <span class="w-1.5 h-1.5 rounded-full
+                        {% if item.status == 'posted' %}bg-mood-calm
+                        {% elif item.status == 'scheduled' %}bg-blue-400
+                        {% else %}bg-gray-500{% endif %}"></span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <a href="/?week_offset={{ week_offset + 1 }}" class="text-gray-400 hover:text-gold transition-colors text-sm font-semibold px-2">&rarr;</a>
+    </div>
+</div>
+
+<!-- Ready-to-Post Cards -->
+{% if ready_videos %}
+<div class="space-y-4 mb-8">
+    {% for video in ready_videos %}
+    {% set card_id = "card-" ~ loop.index %}
+    {% set caption_id = "caption-" ~ loop.index %}
+    {% set charcount_id = "charcount-" ~ loop.index %}
+    {% set copy_fb_id = "copyfb-" ~ loop.index %}
+    <div class="ready-card bg-navy-800 rounded-xl border border-navy-600 overflow-hidden" id="{{ card_id }}">
+        <div class="p-5">
+            <!-- Top row: thumbnail + info + actions -->
+            <div class="flex flex-col sm:flex-row gap-5">
+                <!-- Video preview -->
+                <div class="shrink-0">
+                    <video class="w-full h-48 sm:w-40 sm:h-56 object-cover rounded-lg bg-navy-900 cursor-pointer" controls preload="metadata">
+                        <source src="/videos/{{ video.filename }}" type="video/mp4">
+                    </video>
+                </div>
+
+                <!-- Right side: caption + buttons -->
+                <div class="flex-1 min-w-0 flex flex-col">
+                    <!-- Caption -->
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-gray-500 font-semibold uppercase">Caption</span>
+                        <span class="text-xs text-gray-500"><span id="{{ charcount_id }}">{{ video._caption|length }}</span> / 2200</span>
+                    </div>
+                    <textarea
+                        id="{{ caption_id }}"
+                        class="w-full bg-navy-700 border border-navy-600 text-gray-200 rounded-lg px-3 py-2 text-sm focus:border-gold focus:outline-none resize-y min-h-[80px] mb-3"
+                        oninput="updateCharCount(this, document.getElementById('{{ charcount_id }}'))"
+                    >{{ video._caption }}</textarea>
+
+                    <!-- Action buttons row -->
+                    <div class="flex flex-wrap gap-2 mt-auto">
+                        <button type="button"
+                                onclick="copyFromTextarea('{{ caption_id }}', '{{ copy_fb_id }}')"
+                                class="bg-gold text-navy-900 font-semibold px-4 py-2 rounded-lg hover:bg-gold-hover transition-colors text-sm">
+                            Copy Caption
+                        </button>
+                        <span id="{{ copy_fb_id }}" class="text-mood-calm text-sm py-2 hidden">Copied!</span>
+
+                        <a href="/videos/{{ video.filename }}" download="{{ video.filename }}"
+                           class="bg-navy-700 border border-navy-600 text-white font-semibold px-4 py-2 rounded-lg hover:border-gold hover:text-gold transition-colors text-sm">
+                            Download
+                        </a>
+
+                        <div class="flex-1"></div>
+
+                        <!-- Mark as posted -->
+                        <form class="flex gap-2">
+                            <input type="hidden" name="video_filename" value="{{ video.filename }}">
+                            <input type="hidden" name="script_id" value="{{ video.script.script_id if video.script else '' }}">
+                            <input type="hidden" name="caption_used" class="caption-sync" data-source="{{ caption_id }}" value="{{ video._caption }}">
+                            <button type="button" name="status" value="skipped"
+                                    class="border border-navy-600 text-gray-500 font-semibold px-3 py-2 rounded-lg hover:border-mood-energetic hover:text-mood-energetic transition text-sm"
+                                    hx-post="/api/publish/record"
+                                    hx-include="closest form"
+                                    hx-target="closest .ready-card"
+                                    hx-swap="outerHTML swap:0.3s"
+                                    hx-confirm="Skip this video? It won't appear in the ready list again."
+                                    onclick="syncCaption(this)">
+                                Skip
+                            </button>
+                            <button type="button" name="status" value="posted"
+                                    class="bg-mood-calm text-navy-900 font-semibold px-5 py-2 rounded-lg hover:brightness-110 transition text-sm"
+                                    hx-post="/api/publish/record"
+                                    hx-include="closest form"
+                                    hx-target="closest .ready-card"
+                                    hx-swap="outerHTML swap:0.3s"
+                                    onclick="syncCaption(this)">
+                                Posted &#10004;
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-navy-800 rounded-xl border border-navy-600 p-12 text-center mb-8">
+    <p class="text-gray-400 text-lg mb-3">No videos ready to publish</p>
+    <a href="/settings#pipeline" class="inline-block bg-gold text-navy-900 font-semibold px-6 py-3 rounded-lg hover:bg-gold-hover transition-colors">
+        Go to Settings &rarr;
+    </a>
+</div>
+{% endif %}
+
+<!-- Video Gallery -->
+{% if videos %}
+<hr class="border-navy-600 my-8">
+<div class="mb-4">
+    <h2 class="text-xl font-bold text-white">All Videos</h2>
+    <p class="text-gray-400 text-sm mt-1">{{ videos|length }} video{{ "s" if videos|length != 1 }} rendered</p>
+</div>
+<div class="video-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+    {% for v in videos %}
+    <div class="video-card bg-navy-800 rounded-xl border border-navy-600 overflow-hidden transition-all duration-150 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/30" data-mood="{{ v.mood }}">
+        <div class="video-wrapper relative" style="aspect-ratio: 9/16; max-height: 400px; overflow: hidden; background: #000;">
+            <video
+                src="/videos/{{ v.filename }}"
+                preload="metadata"
+                muted
+                loop
+                playsinline
+                class="w-full h-full object-cover"
+                onmouseenter="this.play()"
+                onmouseleave="this.pause();this.currentTime=0"
+            ></video>
+            <span class="absolute top-3 right-3 w-3 h-3 rounded-full border-2 border-white/30" style="background: {{ hex_to_css(v.theme.accent) }}"></span>
+            {% if v.script and v.script._timing %}
+            <span class="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-2 py-0.5 rounded">{{ v.script._timing.total_duration }}s</span>
+            {% endif %}
+        </div>
+
+        <div class="p-3 flex flex-wrap items-center gap-2 text-sm">
+            <code class="text-xs bg-navy-700 px-1.5 py-0.5 rounded">{{ v.script_prefix }}</code>
+            <span class="bg-gold text-navy-900 text-xs font-semibold uppercase px-2 py-0.5 rounded-full">{{ v.source_type }}</span>
+            <span class="text-gray-500 text-xs">{{ v.size_display }}</span>
+            <span class="text-gray-500 text-xs ml-auto">{{ v.date }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Recent Posts -->
+{% if recent_posts %}
+<div class="mb-4">
+    <h3 class="text-sm font-semibold text-gray-500 mb-2">Recent</h3>
+    {% for post in recent_posts %}
+    <div class="flex items-center gap-3 text-sm text-gray-400">
+        <span class="w-2 h-2 rounded-full {% if post.status == 'posted' %}bg-mood-calm{% else %}bg-gray-500{% endif %}"></span>
+        <span class="text-white">{{ post.video_filename }}</span>
+        <span class="text-gray-600">{{ post.posted_at[:16].replace("T", " ") }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Post History -->
+<hr class="border-navy-600 my-8">
+<details class="group">
+    <summary class="cursor-pointer text-sm font-semibold text-gray-500 hover:text-white transition-colors mb-3">
+        Post History &#9660;
+    </summary>
+    <div id="post-history"
+         hx-get="/api/publish/history"
+         hx-trigger="revealed"
+         hx-swap="innerHTML">
+        <div class="text-gray-500 text-sm">Loading...</div>
+    </div>
+</details>
+{% endblock %}

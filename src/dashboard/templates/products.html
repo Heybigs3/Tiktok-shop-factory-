@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% set active_page = "products" %}
+
+{% block title %}Products{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Products</h1>
+    <p class="text-gray-400 mt-1">{{ stats.total }} product{{ "s" if stats.total != 1 }}, {{ stats.with_video }} with videos</p>
+</div>
+
+{% if products %}
+<!-- Product Table -->
+<div class="bg-navy-800 rounded-xl border border-navy-600 overflow-hidden">
+    <table class="w-full">
+        <thead>
+            <tr class="border-b border-navy-600">
+                <th class="text-left text-xs text-gray-500 uppercase tracking-wider px-5 py-3">Product</th>
+                <th class="text-left text-xs text-gray-500 uppercase tracking-wider px-3 py-3 hidden sm:table-cell">Price</th>
+                <th class="text-center text-xs text-gray-500 uppercase tracking-wider px-3 py-3">Script</th>
+                <th class="text-center text-xs text-gray-500 uppercase tracking-wider px-3 py-3">Video</th>
+                <th class="text-left text-xs text-gray-500 uppercase tracking-wider px-3 py-3 hidden sm:table-cell">Category</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in products %}
+            <tr class="border-b border-navy-600/50 hover:bg-navy-700/50 transition-colors">
+                <td class="px-5 py-3">
+                    <div class="text-white font-medium text-sm">{{ p.product_name }}</div>
+                </td>
+                <td class="px-3 py-3 text-sm text-gray-300 hidden sm:table-cell">
+                    {{ "$%.2f"|format(p.price) if p.price else "—" }}
+                </td>
+                <td class="text-center px-3 py-3">
+                    {% if p.has_script %}
+                    <span class="inline-block w-3 h-3 rounded-full bg-mood-calm"></span>
+                    {% else %}
+                    <span class="inline-block w-3 h-3 rounded-full bg-gray-600"></span>
+                    {% endif %}
+                </td>
+                <td class="text-center px-3 py-3">
+                    {% if p.has_video %}
+                    <span class="inline-block w-3 h-3 rounded-full bg-mood-calm"></span>
+                    {% else %}
+                    <span class="inline-block w-3 h-3 rounded-full bg-gray-600"></span>
+                    {% endif %}
+                </td>
+                <td class="px-3 py-3 text-sm text-gray-400 hidden sm:table-cell">{{ p.category or "—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-12 bg-navy-800 rounded-xl border border-navy-600 max-w-md mx-auto">
+    <div class="text-5xl mb-4">&#128230;</div>
+    <h3 class="text-xl font-bold text-white mb-2">No products scraped</h3>
+    <p class="text-gray-400 mb-4">Run the Kalodata scraper to load product data, or switch to an account with products.</p>
+    <a href="/settings#pipeline" class="inline-block bg-gold text-navy-900 font-semibold px-6 py-2.5 rounded-lg hover:bg-gold-hover transition-colors">Go to Settings</a>
+</div>
+{% endif %}
+{% endblock %}

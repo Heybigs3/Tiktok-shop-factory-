@@ -1,0 +1,77 @@
+{% set run = runs.get(phase_id, {}) if runs is defined else run %}
+
+<div class="bg-navy-800 rounded-xl border border-navy-600 overflow-hidden text-center">
+    <div class="px-4 py-3 border-b border-navy-600">
+        <h3 class="text-white font-bold">{{ phase.label }}</h3>
+        <p class="text-gray-500 text-xs mt-0.5">{{ phase.description }}</p>
+    </div>
+
+    <div class="flex justify-center gap-8 py-4">
+        <div class="flex flex-col items-center">
+            <span class="text-2xl font-bold text-gold">{{ phase.file_count }}</span>
+            <span class="text-xs text-gray-500 uppercase">files</span>
+        </div>
+        <div class="flex flex-col items-center">
+            <span class="text-sm font-bold text-gold">{{ phase.last_run or "Never" }}</span>
+            <span class="text-xs text-gray-500 uppercase">last run</span>
+        </div>
+    </div>
+
+    {% if run and run.status == "running" %}
+    <div
+        class="mx-4 mb-3 p-2 rounded-lg bg-gold/10 text-gold font-semibold text-sm"
+        hx-get="/api/pipeline/{{ phase_id }}/status"
+        hx-trigger="every 2s"
+        hx-target="#phase-{{ phase_id }}"
+        hx-swap="innerHTML"
+    >
+        <span class="inline-block animate-spin mr-1">&#9881;</span> Running...
+    </div>
+    {% elif run and run.status == "done" %}
+    <div class="mx-4 mb-3 p-2 rounded-lg bg-mood-calm/15 text-mood-calm font-semibold text-sm">Done</div>
+    {% elif run and run.status == "failed" %}
+    <div class="mx-4 mb-3 p-2 rounded-lg bg-mood-energetic/15 text-mood-energetic font-semibold text-sm">
+        Failed
+        {% if run.error %}
+        <details class="mt-2 text-left text-xs">
+            <summary class="cursor-pointer">Details</summary>
+            <pre class="mt-1 p-2 bg-navy-900 rounded text-gray-400 overflow-x-auto">{{ run.error }}</pre>
+        </details>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if phase_id != "publish" %}
+    <div class="px-4 pb-4 space-y-2">
+        <button
+            class="w-full bg-gold text-navy-900 font-semibold py-2 rounded-lg hover:bg-gold-hover transition-colors text-sm disabled:opacity-50"
+            hx-post="/api/pipeline/{{ phase_id }}"
+            hx-target="#phase-{{ phase_id }}"
+            hx-swap="innerHTML"
+            {% if phase_id == "scrape" %}hx-confirm="This uses Apify API credits. Continue?"{% endif %}
+            {% if run and run.status == "running" %}disabled{% endif %}
+        >
+            Run {{ phase.label }}
+        </button>
+        {% if phase_id == "render" and phase.file_count > 0 %}
+        <button
+            class="w-full bg-mood-energetic text-white font-semibold py-2 rounded-lg hover:bg-red-500 transition-colors text-sm disabled:opacity-50"
+            hx-delete="/api/videos"
+            hx-target="#phase-render"
+            hx-swap="innerHTML"
+            hx-confirm="Delete all videos?"
+            hx-disabled-elt="this"
+            {% if run and run.status == "running" %}disabled{% endif %}
+        >
+            Clear Videos
+        </button>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="px-4 pb-4">
+        <button disabled class="w-full bg-navy-700 text-gray-500 font-semibold py-2 rounded-lg cursor-not-allowed text-sm">
+            Needs TikTok App Approval
+        </button>
+    </div>
+    {% endif %}
+</div>
